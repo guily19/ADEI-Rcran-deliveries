@@ -1,0 +1,371 @@
+---
+title: "Delivery 1 - Data Quality Report"
+output:
+  pdf_document:
+    fig_width: 7
+    fig_height: 6
+    fig_caption: true
+---
+
+
+```{r include = FALSE}
+library(viridis)
+```
+
+En aquesta entrega es fa un analisis del conjunt de dades del fitxer cresco.txt. El conjunt de dades representa un conjunt de persones.
+Disposem d'una serie de caracteristiques d'aquestes persones, com per exemple, el tipus de feina, la vivenda, l'estat civil...
+
+A partir d'aquesta informació hem de decidir si els donem un credit o els hi deneguem.
+
+## Les dades
+
+A continuació veiem un resum de les dades que disposem
+
+```{r}
+setwd("/Users/guillem/Google Drive/FIB/ADEI/R/R-working-directory")
+base = read.table("dades.txt",header=T,sep='\t',na.string='99999999')
+cresco<-base
+summary(cresco)
+```
+
+## Anàlisis de les dades
+
+Per tal de poder tractar amb les dades hem de fer un primer anàlisis d'aquestes per tal de trobar aquelles que son errates o que tenen un valor molt poc coherent amb la resta de variables que disposem individuos.
+
+La primera operació que fem sobre el dataset es un head i un tail
+
+```{r}
+head(base, 2)
+tail(base,2)
+```
+
+Al fer el tail() ens donem compte que el ultim individuo es erroni totalment i decidim borrar-lo del dataset.
+
+```{r}
+badInd = cresco[4456,]
+badInd
+cresco <- cresco[-4456,]
+```
+
+Per començar mirarem el nombre de variables que tenen algun individu sense emplenar, es a dir, que es un NaN.
+
+```{r}
+numberNArow <- function(dataFrame, output) {
+  output = sum(is.na(dataFrame))
+}
+
+missXrow = apply(base, 1, numberNArow, output = 'outputfile')
+missXcol = apply(base, 2, numberNArow, output = 'outputfile')
+
+```
+Despres d'executar aquest codi tenim el nombre de NaN que hi ha per fila dins la següent variable (no mostrem el resultat perque un vector d'uns i zeros amb totes les files que te el nostre seet de dades):
+```{r eval=FALSE}
+missXrow
+```
+I per columna:
+```{r}
+missXcol
+```
+Si mirem el total de NaN que tenim en el nostre set de dades tenim que:
+
+```{r}
+sum(missXcol)
+
+```
+Que ha de ser igual a la suma de valors per fila:
+```{r}
+sum(missXrow)
+
+```
+Per tal d'afegir aquestes dades en el nostre set de dades utilitzam les següents comandes:
+```{r, eval=FALSE}
+rbind(cresco,missXcol)
+cresco$missValues <- missXrow
+
+```
+
+## Anàlisis dels atributs
+
+Cada individu del conjunt de dades te els següents atributs: dictamen ,anys.feina ,vivenda ,plan ,edat ,estat.civil ,registres ,tipus.feina ,despeses ,ingressos ,patrimoni i carrecs.patr
+
+Alguns d'aquets atributs son variables continues i altres categoriques, començarem fent el analisis de les categoriques.
+
+El que farem serà mirar quins son els posibles valor que poden prendre i mirar quins individuos no compleixen aquets requesits
+
+## Analisis de les variables categoriques
+
+Les variables catagoriques de les que disposem en el nostre dataset són les següents: vivenda, estat.civil i tipus.feina.
+
+# Analisis de la vivenda
+```{r}
+v <- cresco$vivenda
+llista <-which(v != 1 & v != 2 & v != 3 & v != 4 & v != 5 & v != 6)
+llista
+```
+Tenim 6 individuos que no compleixen els valors definits al enunciat.
+
+# Analisis de la estat civil
+```{r}
+v <- cresco$estat.civil
+llista <-which(v != 1 & v != 2 & v != 3 & v != 4 & v != 5)
+llista
+
+```
+
+Tenim un element que no compleix els valors definits al enunciat
+
+# Analisis de la tipus feina
+```{r}
+v <- cresco$tipus.feina
+llista <-which(v != 1 & v != 2 & v != 3 & v != 4)
+llista
+
+```
+
+Tenim 2 elements que no compleixen els valors definits al enunciat
+
+## Analisis de les variables continues
+
+Les variables continues les estudiarem d'una manera diferent a les categoriques. Les variables continues del nostre set de dades son les seguents: anys.feina, plan, edat, despeses, ingressos, patrimoni, carrecs.patrimoni, import.sol i preu.be.
+
+
+Per començar a analitzar les variables continues mirarem quens dels individuos són outliers per cada atribut. Només buscarem outliers extrems i la formula que seguirem és la següent: 
+(Q1-3×IQR, Q3+3×IQR)
+
+A a partir d'aquí, utilitzarem la funció escrita a continuació per a trobar el llindar a partir del cual, una variable es un outlier.
+```{r}
+calcQ <- function(x) {
+  s.x <- summary(x)
+  iqr<-s.x[5]-s.x[2]
+  list(souti=s.x[2]-3*iqr, souts=s.x[5]+3*iqr )
+  }
+```
+# Anàlisis de la variable anys.feina
+Comencem mirant un histograma de la variable:
+```{r, echo=FALSE, fig.align="center"}
+hist(cresco$anys.feina,freq=FALSE,breaks=seq(0,50,4),col=heat.colors(11))
+```
+
+Podem comprovar que aquesta variable no segueix una distribució normal i que en el cas de que tinguem algun outlier aquest tindrà un valor semblant al 40 o major.
+
+Per tal de trobar els outliers apliquem la formula descrita anteriorment:
+```{r}
+calcQ(cresco$anys.feina)
+```
+
+Al executar-la ens donem compte que les variables que tinguin un valor major de 42 o menor que -28 (com que no te una distribució normal no en tenim cap) son outliers extrems.
+
+Ara mirem quens calors d'aquesta variable tenen un balor superior a aquest valor:
+```{r}
+llista<-which( cresco$anys.feina > 42);
+llista
+```
+# Anàlisis de la variable plan
+Comencem mirant un histograma de la variable:
+```{r, echo=FALSE, fig.align="center"}
+hist(cresco$plan,col=heat.colors(11))
+```
+
+Podem comprovar que aquesta variable no segueix una distribució normal i que en el cas de que tinguem algun outlier aquest tindrà un valor semblant al 40 o major.
+
+Per tal de trobar els outliers apliquem la formula descrita anteriorment:
+```{r}
+calcQ(cresco$plan)
+```
+
+Al executar-la ens donem compte que les variables que tinguin un valor major de 132 o menor que -36 (com que no te una distribució normal no en tenim cap) son outliers extrems.
+
+Ara mirem quens calors d'aquesta variable tenen un balor superior a aquest valor:
+```{r}
+llista<-which( cresco$plan >= 132);
+llista
+```
+
+# Anàlisis de la variable edat
+Comencem mirant un histograma de la variable:
+```{r, echo=FALSE, fig.align="center"}
+hist(cresco$edat,col=heat.colors(11))
+```
+
+Per tal de trobar els outliers apliquem la formula descrita anteriorment:
+```{r}
+calcQ(cresco$edat)
+```
+
+Al executar-la ens donem compte que les variables que tinguin un valor major de 96 o menor que -23 (com que no te una distribució normal no en tenim cap) son outliers extrems.
+
+Ara mirem quens calors d'aquesta variable tenen un balor superior a aquest valor:
+```{r}
+llista<-which( cresco$edat >= 96);
+llista
+```
+
+# Anàlisis de la variable despeses
+Comencem mirant un histograma de la variable:
+```{r, echo=FALSE, fig.align="center"}
+hist(cresco$despeses,col=heat.colors(11))
+```
+
+
+Per tal de trobar els outliers apliquem la formula descrita anteriorment:
+```{r}
+calcQ(cresco$despeses)
+```
+
+Al executar-la ens donem compte que les variables que tinguin un valor major de 183 o menor que -76 (com que no te una distribució normal no en tenim cap) son outliers extrems.
+
+Ara mirem quens calors d'aquesta variable tenen un balor superior a aquest valor:
+```{r}
+llista<-which(cresco$despeses >= 183);
+llista
+```
+# Anàlisis de la variable ingressos
+Comencem mirant un histograma de la variable:
+```{r, echo=FALSE, fig.align="center"}
+hist(cresco$ingressos,col=heat.colors(11))
+```
+
+
+Per tal de trobar els outliers apliquem la formula descrita anteriorment:
+```{r}
+calcQ(cresco$ingressos)
+```
+
+Al executar-la ens donem compte que les variables que tinguin un valor major de 420 o menor que -175 (com que no te una distribució normal no en tenim cap) son outliers extrems.
+
+Ara mirem quens calors d'aquesta variable tenen un balor superior a aquest valor:
+```{r}
+llista<-which(cresco$ingressos >= 420);
+llista
+```
+
+# Anàlisis de la variable patrimoni
+Comencem mirant un histograma de la variable:
+```{r, echo=FALSE, fig.align="center"}
+hist(cresco$patrimoni,col=heat.colors(11))
+```
+
+
+Per tal de trobar els outliers apliquem la formula descrita anteriorment:
+```{r}
+calcQ(cresco$patrimoni)
+```
+
+Al executar-la ens donem compte que les variables que tinguin un valor major de 24000 o menor que -18000 (com que no te una distribució normal no en tenim cap) son outliers extrems.
+
+Ara mirem quens calors d'aquesta variable tenen un balor superior a aquest valor:
+```{r}
+llista<-which(cresco$patrimoni >= 24000);
+llista
+```
+
+# Anàlisis de la variable carrecs.patr
+Comencem mirant un histograma de la variable:
+```{r, echo=FALSE, fig.align="center"}
+hist(cresco$carrecs.patr,col=heat.colors(11))
+```
+
+
+Per tal de trobar els outliers apliquem la formula descrita anteriorment:
+```{r}
+calcQ(cresco$carrecs.patr)
+```
+
+Al executar-la ens donem compte que les variables que tinguin un valor major de 24000 o menor que -18000 (com que no te una distribució normal no en tenim cap) son outliers extrems.
+
+Ara mirem quens calors d'aquesta variable tenen un balor superior a aquest valor:
+```{r}
+llista<-which(cresco$carrecs.patr >= 24000);
+llista
+```
+
+# Anàlisis de la variable import.sol
+Comencem mirant un histograma de la variable:
+```{r, echo=FALSE, fig.align="center"}
+hist(cresco$import.sol,col=heat.colors(11))
+```
+
+
+Per tal de trobar els outliers apliquem la formula descrita anteriorment:
+```{r}
+calcQ(cresco$import.sol)
+```
+
+Al executar-la ens donem compte que les variables que tinguin un valor major de 3100 o menor que -1100 (com que no te una distribució normal no en tenim cap) son outliers extrems.
+
+Ara mirem quens calors d'aquesta variable tenen un balor superior a aquest valor:
+```{r}
+llista<-which(cresco$import.sol >= 3100);
+llista
+```
+
+# Anàlisis de la variable preu.be
+Comencem mirant un histograma de la variable:
+```{r, echo=FALSE, fig.align="center"}
+hist(cresco$preu.be,col=heat.colors(11))
+```
+
+
+Per tal de trobar els outliers apliquem la formula descrita anteriorment:
+```{r}
+calcQ(cresco$preu.be)
+```
+
+Al executar-la ens donem compte que les variables que tinguin un valor major de 3100 o menor que -604 (com que no te una distribució normal no en tenim cap) son outliers extrems.
+
+Ara mirem quens calors d'aquesta variable tenen un balor superior a aquest valor:
+```{r}
+llista<-which(cresco$preu.be >= 3414);
+llista
+```
+
+# Anàlisis de la relació que hi ha entre les dades
+
+Per tal de mirar la relació qui hi ha entre cada atribut de les dades que disposem amb la resta utilitzarem la llibreria anomenada: FactoMineR
+
+```{r}
+library("FactoMineR")
+```
+
+Ara farem un estudi per cada variable categorica amb la resta de variables que disposem
+
+# Comparativa entre el atribut anys.feina i la resta d'atributs
+```{r}
+condes(cresco,num.var=which(colnames(cresco)=="anys.feina"))
+```
+
+# Comparativa entre el atribut plan i la resta d'atributs
+```{r}
+condes(cresco,num.var=which(colnames(cresco)=="plan"))
+```
+# Comparativa entre el atribut edat i la resta d'atributs
+```{r}
+condes(cresco,num.var=which(colnames(cresco)=="edat"))
+```
+# Comparativa entre el atribut despeses i la resta d'atributs
+```{r}
+condes(cresco,num.var=which(colnames(cresco)=="despeses"))
+```
+# Comparativa entre el atribut ingressos i la resta d'atributs
+```{r}
+condes(cresco,num.var=which(colnames(cresco)=="ingressos"))
+```
+# Comparativa entre el atribut patrimoni i la resta d'atributs
+```{r}
+condes(cresco,num.var=which(colnames(cresco)=="patrimoni"))
+```
+# Comparativa entre el atribut carrecs.patr i la resta d'atributs
+```{r}
+condes(cresco,num.var=which(colnames(cresco)=="carrecs.patr"))
+```
+# Comparativa entre el atribut import.sol i la resta d'atributs
+```{r}
+condes(cresco,num.var=which(colnames(cresco)=="import.sol"))
+```
+# Comparativa entre el atribut preu.be i la resta d'atributs
+```{r}
+condes(cresco,num.var=which(colnames(cresco)=="preu.be"))
+```
+
+Mirant les taules de comparatives anteriors podem veure el seguent:
+podem comprovar que hi ha molta relació entre la variable anys.feina i la variable edat, la qual cosa te molt de sentit ja que una persona amb més edat pot tenir més anys treballats. També hi ha molta relació entre ingressos i despeses, i entre patrimoni i tipus feina. 

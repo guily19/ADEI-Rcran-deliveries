@@ -1,0 +1,176 @@
+---
+title: "Data Validation"
+author: "Lidia Montero"
+date: "September 2016"
+output: 
+  html_document: 
+    toc: true
+    toc_depth: 3
+    number_sections: true
+---
+
+# Introduction
+
+## Load data
+
+```{r}
+setwd("F:/FIB-ADEI/CURS1617Q1/PRACTICA/CREDITSCORE/LABORATORI")
+
+### Either Read database which is binary R format###
+# load("cresco_raw.RData")
+# Or READING credsco.txt CSV file
+base <- read.table("credsco.txt",header=T,sep='\t',na.string='99999999')
+
+dim(base)
+names(base)
+head(base, 12)
+tail(base,8)
+
+cresco<-base
+
+save.image("F:/FIB-ADEI/CURS1617Q1/PRACTICA/CREDITSCORE/LABORATORI/credsco_raw.RData")
+
+```
+
+# Data Coding and Clearance
+
+## Final Decision: dictamen
+
+```{r}
+summary(cresco)
+# cresco$dictamen  useless
+table(cresco$dictamen)
+# Remove observations with missing values (TARGET)
+
+llista<-which( cresco$dictamen == 0);llista
+cresco[3310, 5] # Cel.la 3310,5 
+cresco[3310,]
+cresco[c(3310,112),]
+cresco[1:4, c(1,3,5)]
+cresco[1:4, "dictamen"]
+c(3310,112)
+
+cresco<-cresco[-llista,]
+paste("f.dict",c("Accepted","Rejected"),sep="-")
+cresco$f.dictamen<-factor(cresco$dictamen, levels=1:2, labels=paste("f.dict",c("Accepted","Rejected"),sep="-"))
+summary(cresco$f.dictamen)
+
+# Univariant Exploratory Data Analysis (EDA)
+summary(cresco$f.dictamen)
+table(cresco$f.dictamen) # Better
+round(100*(table(cresco$f.dictamen)/nrow(cresco)),dig=2)
+
+# Graphics
+# Pie
+piepercent<-round(100*(table(cresco$f.dictamen)/nrow(cresco)),dig=2); piepercent
+
+pie(table(cresco$f.dictamen),col=heat.colors(2),labels=paste(piepercent,"%"))
+
+legend("topright", levels(cresco$f.dictamen), cex = 0.8, fill = heat.colors(2))
+
+# Bar Chart
+barplot(table(cresco$f.dictamen),main="Barplot Final Decision Factor",col=c("green","red"))
+
+```
+
+## Experience in current job (years)
+
+Now an example on a numeric variable
+
+```{r}
+names(cresco)
+summary(cresco$anys.feina)
+# Quartils
+quantile(cresco$anys.feina)
+seq(0, 1, 0.1)
+quantile(cresco$anys.feina, probs = seq(0, 1, 0.1))
+
+# Graphics
+plot(cresco$anys.feina)
+hist(cresco$anys.feina)
+hist(cresco$anys.feina,20)
+hist(cresco$anys.feina,breaks=seq(0,50,4))
+hist(cresco$anys.feina,freq=FALSE,breaks=seq(0,50,4),col=heat.colors(11))
+# 
+boxplot(cresco$anys.feina, main="Boxplot Years in current Job")
+# Calculate upper thresholds for mild and severe outliers
+abline(h=20,col="red",lwd=2)
+abline(h=40,col="purple",lwd=2)
+calcQ(cresco$anys.feina)
+
+# Function to calculate the outliers thresholds
+calcQ <- function(x) {
+  s.x <- summary(x)
+  iqr<-s.x[5]-s.x[2]
+  list(souti=s.x[2]-3*iqr, mouti=s.x[2]-1.5*iqr, min=s.x[1], q1=s.x[2], q2=s.x[3], 
+       q3=s.x[5], max=s.x[6], mouts=s.x[5]+1.5*iqr, souts=s.x[5]+3*iqr ) }
+
+```
+
+## Discretization of numeric variables into factors (new)
+
+```{r}
+summary(cresco$anys.feina)
+quantile(cresco$anys.feina,seq(0,1,0.1))
+quantile(cresco$anys)
+
+cresco$aux<-factor(cut(cresco$anys.feina,breaks=c(-1,1.99,5,12,48)))
+summary(cresco$aux)
+tapply(cresco$anys.feina,cresco$aux,median)
+cresco$f.afei<-factor(cut(cresco$anys.feina,breaks=c(-1,1.99,5,12,48)))
+levels(cresco$f.afei)<-paste("f.afei-",levels(cresco$f.afei),sep="")
+table(cresco$f.afei)
+
+# Per ara ja està bé aixó
+
+
+# Outliers have to be considered for each numeric variable (initialization should be done at the beginning)
+
+#######################################################
+iouts<-rep(0,nrow(cresco))
+jouts<-rep(0,ncol(cresco))
+######################################################
+calcQ(cresco$anys.feina)
+library(car)
+Boxplot(cresco$anys.feina, id.n=5)
+abline(h=27,col="red",lwd=2)
+abline(h=42,col="purple",lwd=2)
+
+llista<-which(cresco$anys.feina>42);llista;length(llista)
+if(length(llista)>0){
+  iouts[llista]<-iouts[llista]+1
+  jouts["anys.feina"]<-length(llista)}
+
+```
+
+## Vivenda
+
+```{r}
+summary(cresco$vivenda)
+ll<-which(cresco$vivenda==0);ll;length(ll)
+cresco$vivenda[ll]<-NA
+cresco$f.habi<-factor(cresco$vivenda,levels=1:6,labels=c("HAB.rental","HAB.scrpu","HAB.contpri","HAB.nocontract","HAB.family","HAB.others" ))
+summary(cresco$f.habi)
+levels(cresco$f.habi)[c(3,4,6)]<-"HAB.others"
+
+```
+
+# Data Quality Report
+
+```{r}
+# Això ho feu al final de tractar totes les vars
+imis<-rep(0,nrow(cresco))
+jmis<-rep(0,ncol(cresco))
+
+names(jmis)<-names(cresco)
+
+for ( i in 1:nrow(cresco) ){
+  imis[i]<-imis[i]+sum(is.na(cresco[i,]))  # Number of missing per observation
+}
+
+# Also for variables
+
+
+
+```
+

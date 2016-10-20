@@ -1,0 +1,15 @@
+setwd("/Users/guillem/Google Drive/FIB/ADEI/R/R-working-directory")
+
+base = read.table("dades.txt",header=T,sep='\t',na.string='99999999')
+
+dim(base)
+names(base)
+head(base, 12)
+tail(base,8)
+
+cresco<-base
+
+save.image("credsco_raw.RData")
+
+library("FactoMineR")
+catdes(cresco, cresco$vivenda)

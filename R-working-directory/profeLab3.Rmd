@@ -1,0 +1,166 @@
+---
+title: "Data Validation"
+author: "Lidia Montero"
+date: "September 2016"
+output: 
+  html_document: 
+    toc: true
+    toc_depth: 3
+    number_sections: true
+---
+
+# Introduction
+
+## Load data
+
+```{r}
+
+library("FactoMineR")
+#library("car")
+#library("missMDA")
+
+rm(list = ls()) # Remove all objects
+
+setwd("/Users/guillem/Google Drive/FIB/ADEI/R/R-working-directory")
+
+### Either Read database which is binary R format###
+# load("cresco_raw.RData")
+# Or READING credsco.txt CSV file
+base <- read.table("credsco.txt",header=T,sep='\t',na.string='99999999')
+source('E:/FIB-ADEI/CURS1617Q1/PRACTICA/CREDITSCORE/LABORATORI/countsandfuns.r')
+dim(base)
+names(base)
+head(base, 12)
+tail(base,8)
+
+cresco<-base
+
+# save.image("F:/FIB-ADEI/CURS1617Q1/PRACTICA/CREDITSCORE/LABORATORI/credsco_raw.RData")
+
+```
+
+### Feature Selection for vmis and vouts
+
+```{r}
+names(cresco)
+summary(cresco)
+vars_con<-names(cresco)[c(2,4,5,9:11,13:14)];length(vars_con)
+vars_dis<-names(cresco)[c(15:27)];length(vars_dis)
+vars_qua<-c("vmis","vouts")
+nmis
+n.out
+sort(n.out,decreasing=T)
+
+summary(cresco$vmis)
+Boxplot(cresco$vmis)
+summary(cresco$vout)
+llista<-Boxplot(cresco$vout,id.n=9)
+cresco[llista,]
+library(car)
+boxplot(cresco[,c(9:10)])
+
+cor(cresco[,c("vmis",vars_con)],use="pairwise.complete.obs")
+cor(cresco[,c("vout",vars_con)],use="pairwise.complete.obs")
+
+library(FactoMineR)
+condes(cresco,num.var=28)  # vmis - nb missing per individu
+condes(cresco,num.var=29) # vout - nb outliers per individu
+
+```
+
+## Errors: coding some outliers as errors
+
+```{r}
+n.out
+names(cresco)
+vars_con_out<-names(cresco)[c(9:14)]
+boxplot(cresco[c(9:14)])
+# despeses - spendings
+Boxplot(cresco$despeses)
+# ingressos-income
+Boxplot(cresco$ingressos)
+```
+
+# Data Imputation
+
+## Numeric Variables
+
+```{r}
+library(missMDA)
+nmis
+names(cresco)
+summary(cresco)
+# Income and Belongings (ingressos i patrimoni)
+vars_con_mis<-names(cresco)[c(10,11)];length(vars_con_mis)
+?estim_ncpPCA
+#nb <- estim_ncpPCA(cresco[,vars_con],ncp.min=0,ncp.max=5,method.cv="Kfold",nbsim=20,pNA=0.05)
+#nb
+
+res.comp <- imputePCA(cresco[,vars_con],ncp=5)
+attributes(res.comp$completeObs)
+
+summary(cresco[,vars_con])
+summary(res.comp$completeObs)
+summary(cresco[,10:11])
+summary(res.comp$completeObs[,5:6])
+
+# Patrimoni (negative imputations!)
+par(mfrow=c(1,2))
+Boxplot(cresco[,11])
+Boxplot(res.comp$completeObs[,6])
+ll<-which(res.comp$completeObs[,6]< 0);length(ll);ll
+res.comp$completeObs[ll,6] <-0
+
+Boxplot(cresco[,11])
+Boxplot(res.comp$completeObs[,6])
+summary(cresco[,11])
+summary(res.comp$completeObs[,6])
+
+# Ingressos
+par(mfrow=c(1,2))
+Boxplot(cresco[,"ingressos"])
+Boxplot(res.comp$completeObs[,"ingressos"])
+
+quantile(cresco[,"ingressos"],seq(0,1,0.1),na.rm=T)
+quantile(res.comp$completeObs[,"ingressos"],seq(0,1,0.1))
+
+cresco[,10:11]<-res.comp$completeObs[,5:6]
+summary(cresco)
+```
+
+## Qualitative Variables
+
+```{r}
+names(cresco)
+vars_dis
+#result <- estim_ncpMCA(cresco[,vars_dis], ncp.min=0,ncp.max=5,method.cv="Kfold",nbsim=20,pNA=0.05)
+#result
+summary(cresco[,vars_dis])
+## Impute the indicator matrix and perform a MCA
+?imputeMCA
+res.impute<-imputeMCA(cresco[,vars_dis], ncp=5)
+summary(res.impute$completeObs)
+
+summary(cresco[ , vars_dis ])
+summary(res.impute$completeObs)
+
+# Validation of imputation
+par(mfrow=c(4,2))
+for (i in 1:4) {
+  pie(table(cresco[,vars_dis[i]]))
+  pie(table(res.impute$completeObs[,vars_dis[i]]))
+}
+
+# Previously to accept suggestions, imputed levels have to be checked
+
+# Imputation
+cresco[ , vars_dis ]<-res.impute$completeObs
+```
+
+# Feature Selection and Profiling
+
+```{r}
+names(cresco)
+# Target binari f.dictamen
+catdes(cresco,num.var=15)
+```
